@@ -1,19 +1,69 @@
 <?php
 
-use Illuminate\Http\Request;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HotelController;
+use App\Http\Controllers\PaymentController;
+use App\Http\Middleware\IsAdmin;
 use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| API Routes
+| Public routes
 |--------------------------------------------------------------------------
-|
-| Here is where you can register API routes for your application. These
-| routes are loaded by the RouteServiceProvider and all of them will
-| be assigned to the "api" middleware group. Make something great!
-|
 */
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login',    [AuthController::class, 'login']);
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
+Route::get('/hotels',         [HotelController::class, 'index']);
+Route::get('/hotels/{hotel}', [HotelController::class, 'show']);
+
+/*
+|--------------------------------------------------------------------------
+| Auth routes (any logged-in user)
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth:sanctum')->group(function () {
+
+    // Auth
+    Route::post('/logout',  [AuthController::class, 'logout']);
+    Route::get('/profile',  [AuthController::class, 'profile']);
+    Route::put('/profile',  [AuthController::class, 'updateProfile']);
+
+    // Bookings (user sees own, admin sees all — logic inside controller)
+    Route::get('/bookings',              [BookingController::class, 'index']);
+    Route::post('/bookings',             [BookingController::class, 'store']);
+    Route::get('/bookings/{booking}',    [BookingController::class, 'show']);
+    Route::put('/bookings/{booking}',    [BookingController::class, 'update']);
+    Route::delete('/bookings/{booking}', [BookingController::class, 'destroy']);
+
+    // Payments (Confirm & Pay flow with QR scan-to-pay)
+    Route::post('/bookings/{booking}/payment',   [PaymentController::class, 'initiate']);
+    Route::get('/payments/{payment}/status',     [PaymentController::class, 'status']);
+    Route::post('/payments/{payment}/authorize', [PaymentController::class, 'authorizePayment']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin-only routes
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware(IsAdmin::class)->group(function () {
+
+        // Hotel management
+        Route::post('/hotels',           [HotelController::class, 'store']);
+        Route::put('/hotels/{hotel}',    [HotelController::class, 'update']);
+        Route::delete('/hotels/{hotel}', [HotelController::class, 'destroy']);
+
+        // User management
+        Route::get('/admin/users',                    [AuthController::class, 'allUsers']);
+        Route::put('/admin/users/{user}/role',        [AuthController::class, 'changeRole']);
+        Route::delete('/admin/users/{user}',          [AuthController::class, 'deleteUser']);
+
+        // Dashboard analytics (Overview screen)
+        Route::get('/admin/dashboard/overview',            [DashboardController::class, 'overview']);
+        Route::get('/admin/dashboard/revenue-performance',  [DashboardController::class, 'revenuePerformance']);
+        Route::get('/admin/dashboard/recent-bookings',      [DashboardController::class, 'recentBookings']);
+        Route::get('/admin/dashboard/bookings-summary',     [DashboardController::class, 'bookingsSummary']);
+    });
 });
