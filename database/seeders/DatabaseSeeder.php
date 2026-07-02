@@ -92,6 +92,54 @@ class DatabaseSeeder extends Seeder
                 'images'          => [],
                 'is_active'       => true,
             ],
+            [
+                'name'            => 'Sakura Sky Hotel',
+                'slug'            => 'sakura-sky-hotel',
+                'description'     => 'A polished city stay above Shinjuku with skyline views and calm interiors.',
+                'location'        => 'Tokyo',
+                'country'         => 'Japan',
+                'latitude'        => 35.6895000,
+                'longitude'       => 139.6917000,
+                'price_per_night' => 420.00,
+                'star_rating'     => 5,
+                'review_score'    => 4.8,
+                'review_count'    => 187,
+                'amenities'       => ['Sky Bar', 'Onsen Bath', 'Airport Transfer', 'Free WiFi'],
+                'images'          => [],
+                'is_active'       => true,
+            ],
+            [
+                'name'            => 'Desert Moon Camp',
+                'slug'            => 'desert-moon-camp',
+                'description'     => 'Luxury tented suites set among red dunes with private terraces and stargazing decks.',
+                'location'        => 'Wadi Rum',
+                'country'         => 'Jordan',
+                'latitude'        => 29.5321000,
+                'longitude'       => 35.0063000,
+                'price_per_night' => 265.00,
+                'star_rating'     => 4,
+                'review_score'    => 4.6,
+                'review_count'    => 143,
+                'amenities'       => ['Desert Tours', 'Private Terrace', 'Campfire Dining', 'Stargazing'],
+                'images'          => [],
+                'is_active'       => true,
+            ],
+            [
+                'name'            => 'Harbor Light Suites',
+                'slug'            => 'harbor-light-suites',
+                'description'     => 'Modern waterfront suites steps from the marina, seafood markets, and ferry piers.',
+                'location'        => 'Vancouver',
+                'country'         => 'Canada',
+                'latitude'        => 49.2827000,
+                'longitude'       => -123.1207000,
+                'price_per_night' => 390.00,
+                'star_rating'     => 4,
+                'review_score'    => 4.7,
+                'review_count'    => 205,
+                'amenities'       => ['Harbor View', 'Kitchenette', 'Gym', 'Pet Friendly'],
+                'images'          => [],
+                'is_active'       => true,
+            ],
         ];
 
         foreach ($hotels as $data) {
@@ -118,6 +166,9 @@ class DatabaseSeeder extends Seeder
         $horizon = Hotel::where('slug', 'grand-horizon-resort')->first();
         $marais  = Hotel::where('slug', 'le-marais-maison')->first();
         $forest  = Hotel::where('slug', 'forest-edge-retreat')->first();
+        $sakura  = Hotel::where('slug', 'sakura-sky-hotel')->first();
+        $desert  = Hotel::where('slug', 'desert-moon-camp')->first();
+        $harbor  = Hotel::where('slug', 'harbor-light-suites')->first();
 
         $azure->badges()->attach([
             $badges['Editor\'s Choice']->id,
@@ -129,6 +180,9 @@ class DatabaseSeeder extends Seeder
         ]);
         $marais->badges()->attach([$badges['Best Rate Guaranteed']->id]);
         $forest->badges()->attach([$badges['Hidden Gem']->id, $badges['New']->id]);
+        $sakura->badges()->attach([$badges['Top Rated']->id, $badges['Editor\'s Choice']->id]);
+        $desert->badges()->attach([$badges['Hidden Gem']->id, $badges['Eco-Certified Gold']->id]);
+        $harbor->badges()->attach([$badges['Best Rate Guaranteed']->id, $badges['New']->id]);
 
         // Room types per hotel ("Choose Your Room" cards)
         HotelRoomType::insert([
@@ -170,6 +224,48 @@ class DatabaseSeeder extends Seeder
                 'price_per_night' => 1450.00,
                 'images'          => json_encode([]),
                 'description'     => 'Private pool and butler service.',
+                'is_active'       => true,
+                'created_at'      => now(),
+                'updated_at'      => now(),
+            ],
+            [
+                'hotel_id'        => $sakura->id,
+                'name'            => 'Shinjuku Skyline King',
+                'badge'           => 'City View',
+                'size'            => '48m2',
+                'bed_type'        => 'King Bed',
+                'max_guests'      => 2,
+                'price_per_night' => 420.00,
+                'images'          => json_encode([]),
+                'description'     => 'High-floor room with skyline views and a deep soaking tub.',
+                'is_active'       => true,
+                'created_at'      => now(),
+                'updated_at'      => now(),
+            ],
+            [
+                'hotel_id'        => $desert->id,
+                'name'            => 'Dune Terrace Tent',
+                'badge'           => 'Stargazer',
+                'size'            => '62m2',
+                'bed_type'        => 'Queen Bed',
+                'max_guests'      => 2,
+                'price_per_night' => 265.00,
+                'images'          => json_encode([]),
+                'description'     => 'Private terrace, woven interiors, and guided evening stargazing.',
+                'is_active'       => true,
+                'created_at'      => now(),
+                'updated_at'      => now(),
+            ],
+            [
+                'hotel_id'        => $harbor->id,
+                'name'            => 'Marina One-Bedroom Suite',
+                'badge'           => 'Family Ready',
+                'size'            => '70m2',
+                'bed_type'        => 'King Bed + Sofa Bed',
+                'max_guests'      => 4,
+                'price_per_night' => 390.00,
+                'images'          => json_encode([]),
+                'description'     => 'Waterfront suite with kitchenette, balcony, and marina views.',
                 'is_active'       => true,
                 'created_at'      => now(),
                 'updated_at'      => now(),

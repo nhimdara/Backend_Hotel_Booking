@@ -37,18 +37,18 @@ class DashboardController extends Controller
             ->count();
 
         $revenueMtd = Booking::where('hotel_id', $hotel->id)
-            ->where('status', '!=', 'cancelled')
+            ->whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
             ->whereMonth('created_at', Carbon::now()->month)
             ->whereYear('created_at', Carbon::now()->year)
             ->sum('total_price');
 
         $revenueYesterday = Booking::where('hotel_id', $hotel->id)
-            ->where('status', '!=', 'cancelled')
+            ->whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
             ->whereDate('created_at', Carbon::yesterday())
             ->sum('total_price');
 
         $revenueToday = Booking::where('hotel_id', $hotel->id)
-            ->where('status', '!=', 'cancelled')
+            ->whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
             ->whereDate('created_at', Carbon::today())
             ->sum('total_price');
 
@@ -101,7 +101,7 @@ class DashboardController extends Controller
         }
 
         $rows = Booking::where('hotel_id', $hotel->id)
-            ->where('status', '!=', 'cancelled')
+            ->whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
             ->whereBetween('created_at', [$start, $end])
             ->select([
                 DB::raw("DATE_FORMAT(created_at, '{$groupFormat}') as period"),
@@ -124,13 +124,13 @@ class DashboardController extends Controller
                 : (clone $periodStart)->endOfDay();
 
             $opening = Booking::where('hotel_id', $hotel->id)
-                ->where('status', '!=', 'cancelled')
+                ->whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
                 ->whereBetween('created_at', [$periodStart, $periodEnd])
                 ->orderBy('created_at')
                 ->value('total_price');
 
             $closing = Booking::where('hotel_id', $hotel->id)
-                ->where('status', '!=', 'cancelled')
+                ->whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
                 ->whereBetween('created_at', [$periodStart, $periodEnd])
                 ->orderByDesc('created_at')
                 ->value('total_price');
@@ -205,7 +205,7 @@ class DashboardController extends Controller
         $occupancyRate = $totalRooms > 0 ? round(($occupied / $totalRooms) * 100, 1) : 0;
 
         $revenueMtd = Booking::where('hotel_id', $hotel->id)
-            ->where('status', '!=', 'cancelled')
+            ->whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
             ->whereMonth('created_at', Carbon::now()->month)
             ->whereYear('created_at', Carbon::now()->year)
             ->sum('total_price');

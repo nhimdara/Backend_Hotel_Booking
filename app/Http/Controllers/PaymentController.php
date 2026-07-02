@@ -23,6 +23,10 @@ class PaymentController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
+        if ($booking->status === 'cancelled') {
+            return response()->json(['message' => 'Cannot pay for a cancelled booking.'], 422);
+        }
+
         if ($booking->payment) {
             return response()->json([
                 'message' => 'Payment already initiated for this booking.',
@@ -59,10 +63,18 @@ class PaymentController extends Controller
      *
      * Polled by the frontend countdown timer to check if payment was authorized.
      */
-    public function status(Payment $payment): JsonResponse
+    public function status(Request $request, Payment $payment): JsonResponse
     {
+        if (!$this->canAccessPayment($request, $payment)) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
         if ($payment->isExpired()) {
             $payment->update(['status' => 'expired']);
+
+            if ($payment->booking->status === 'pending') {
+                $payment->booking->update(['status' => 'cancelled']);
+            }
         }
 
         return response()->json([
@@ -79,14 +91,21 @@ class PaymentController extends Controller
      * Simulates the banking app scanning and authorizing the QR code.
      * In production this would be called by a webhook from the payment provider.
      */
-    public function authorizePayment(Payment $payment): JsonResponse
+    public function authorizePayment(Request $request, Payment $payment): JsonResponse
     {
+        if (!$this->canAccessPayment($request, $payment)) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
         if ($payment->status !== 'pending') {
             return response()->json(['message' => 'This payment can no longer be authorized.'], 422);
         }
 
         if ($payment->isExpired()) {
             $payment->update(['status' => 'expired']);
+            if ($payment->booking->status === 'pending') {
+                $payment->booking->update(['status' => 'cancelled']);
+            }
             return response()->json(['message' => 'Payment hold has expired.'], 422);
         }
 
@@ -110,6 +129,11 @@ class PaymentController extends Controller
             'points_earned' => $payment->points_earned,
             'new_points_balance' => $user->fresh()->loyalty_points,
         ]);
+    }
+
+    private function canAccessPayment(Request $request, Payment $payment): bool
+    {
+        return $request->user()->isAdmin() || $payment->booking->user_id === $request->user()->id;
     }
 
     private function buildQrPayload(): string

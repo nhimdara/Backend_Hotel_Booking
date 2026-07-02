@@ -73,11 +73,11 @@ class BookingController extends Controller
             ...$validated,
             'user_id'     => $request->user()->id,
             'total_price' => $totalPrice,
-            'status'      => 'confirmed',
+            'status'      => 'pending',
         ]);
 
         return response()->json([
-            'message' => 'Booking confirmed.',
+            'message' => 'Booking created. Complete payment to confirm.',
             'booking' => $booking->load('hotel'),
         ], 201);
     }
@@ -93,7 +93,7 @@ class BookingController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
-        return response()->json($booking->load('hotel', 'user'));
+        return response()->json($booking->load('hotel', 'user', 'payment'));
     }
 
     /**

@@ -180,12 +180,12 @@ Returns:
 
 ```json
 {
-  "message": "Booking confirmed.",
+  "message": "Booking created. Complete payment to confirm.",
   "booking": {
     "id": 1,
     "booking_reference": "SE-ABCD-1234",
     "total_price": "1740.00",
-    "status": "confirmed"
+    "status": "pending"
   }
 }
 ```
@@ -276,7 +276,7 @@ Returns:
 
 `POST /payments/{paymentId}/authorize`
 
-This simulates the bank/webhook confirming payment. Returns the updated payment, booking, and loyalty point balance.
+This simulates the bank/webhook confirming payment. It changes the payment to `completed`, changes the booking from `pending` to `confirmed`, and returns the updated payment, booking, and loyalty point balance.
 
 ## Admin: Hotels
 
