@@ -15,7 +15,7 @@ return new class extends Migration
             $table->decimal('amount', 10, 2);
             $table->enum('method', ['card', 'qr_scan', 'bank_transfer'])->default('qr_scan');
             $table->enum('status', ['pending', 'authorized', 'completed', 'failed', 'expired'])->default('pending');
-            $table->string('qr_code_payload')->nullable(); // encoded data the QR represents
+            $table->string('qr_code_payload')->nullable(); // public QR image URL shown to the user
             $table->timestamp('hold_expires_at')->nullable(); // the "14:59 countdown"
             $table->timestamp('authorized_at')->nullable();
             $table->unsignedInteger('points_earned')->default(0);

@@ -14,7 +14,7 @@ class PaymentController extends Controller
     /**
      * POST /api/bookings/{booking}/payment
      *
-     * Initiates a payment hold for a booking (generates QR payload,
+     * Initiates a payment hold for a booking (returns the QR image URL,
      * starts the 15-minute countdown shown on the Confirm & Pay screen).
      */
     public function initiate(Request $request, Booking $booking): JsonResponse
@@ -42,7 +42,7 @@ class PaymentController extends Controller
             'amount'          => $booking->total_price,
             'method'          => $validated['method'] ?? 'qr_scan',
             'status'          => 'pending',
-            'qr_code_payload' => $this->buildQrPayload($booking),
+            'qr_code_payload' => $this->buildQrPayload(),
             'hold_expires_at' => Carbon::now()->addMinutes(15),
             'points_earned'   => $pointsEarned,
         ]);
@@ -112,15 +112,9 @@ class PaymentController extends Controller
         ]);
     }
 
-    private function buildQrPayload(Booking $booking): string
+    private function buildQrPayload(): string
     {
-        // Encodes what a real banking app would scan: amount + booking ref + merchant id
-        return base64_encode(json_encode([
-            'merchant'  => 'StayEasy',
-            'booking'   => $booking->booking_reference,
-            'amount'    => (float) $booking->total_price,
-            'currency'  => 'USD',
-        ]));
+        return asset('images/ada-pay-qr.jpg');
     }
 
     private function recalculateTier($user): void

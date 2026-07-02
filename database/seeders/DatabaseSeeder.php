@@ -229,12 +229,7 @@ class DatabaseSeeder extends Seeder
             'amount'          => $booking->total_price,
             'method'          => 'qr_scan',
             'status'          => 'completed',
-            'qr_code_payload' => base64_encode(json_encode([
-                'merchant' => 'StayEasy',
-                'booking'  => $booking->booking_reference,
-                'amount'   => (float) $booking->total_price,
-                'currency' => 'USD',
-            ])),
+            'qr_code_payload' => asset('images/ada-pay-qr.jpg'),
             'hold_expires_at' => now()->addMinutes(15),
             'authorized_at'   => now(),
             'points_earned'   => 2593,
