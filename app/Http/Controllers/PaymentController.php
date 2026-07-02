@@ -115,7 +115,7 @@ class PaymentController extends Controller
         ]);
 
         $booking = $payment->booking;
-        $booking->update(['status' => 'confirmed']);
+        $booking->update(['status' => 'awaiting_approval']);
 
         // Award loyalty points and update tier
         $user = $booking->user;
@@ -123,7 +123,7 @@ class PaymentController extends Controller
         $this->recalculateTier($user);
 
         return response()->json([
-            'message' => 'Payment authorized. Booking confirmed.',
+            'message' => 'Payment authorized. Booking is waiting for hotel approval.',
             'payment' => $payment->fresh(),
             'booking' => $booking->fresh(),
             'points_earned' => $payment->points_earned,

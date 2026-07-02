@@ -15,13 +15,17 @@ class Room extends Model
         'room_number',
         'room_type',
         'floor',
+        'wing',
         'base_rate',
         'max_occupancy',
         'status',
+        'description',
+        'images',
     ];
 
     protected $casts = [
         'base_rate' => 'decimal:2',
+        'images' => 'array',
     ];
 
     public function hotel(): BelongsTo

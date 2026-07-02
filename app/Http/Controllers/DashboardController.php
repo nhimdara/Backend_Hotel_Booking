@@ -37,18 +37,18 @@ class DashboardController extends Controller
             ->count();
 
         $revenueMtd = Booking::where('hotel_id', $hotel->id)
-            ->whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
+            ->whereIn('status', ['awaiting_approval', 'confirmed', 'checked_in', 'checked_out'])
             ->whereMonth('created_at', Carbon::now()->month)
             ->whereYear('created_at', Carbon::now()->year)
             ->sum('total_price');
 
         $revenueYesterday = Booking::where('hotel_id', $hotel->id)
-            ->whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
+            ->whereIn('status', ['awaiting_approval', 'confirmed', 'checked_in', 'checked_out'])
             ->whereDate('created_at', Carbon::yesterday())
             ->sum('total_price');
 
         $revenueToday = Booking::where('hotel_id', $hotel->id)
-            ->whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
+            ->whereIn('status', ['awaiting_approval', 'confirmed', 'checked_in', 'checked_out'])
             ->whereDate('created_at', Carbon::today())
             ->sum('total_price');
 
@@ -101,7 +101,7 @@ class DashboardController extends Controller
         }
 
         $rows = Booking::where('hotel_id', $hotel->id)
-            ->whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
+            ->whereIn('status', ['awaiting_approval', 'confirmed', 'checked_in', 'checked_out'])
             ->whereBetween('created_at', [$start, $end])
             ->select([
                 DB::raw("DATE_FORMAT(created_at, '{$groupFormat}') as period"),
@@ -124,13 +124,13 @@ class DashboardController extends Controller
                 : (clone $periodStart)->endOfDay();
 
             $opening = Booking::where('hotel_id', $hotel->id)
-                ->whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
+                ->whereIn('status', ['awaiting_approval', 'confirmed', 'checked_in', 'checked_out'])
                 ->whereBetween('created_at', [$periodStart, $periodEnd])
                 ->orderBy('created_at')
                 ->value('total_price');
 
             $closing = Booking::where('hotel_id', $hotel->id)
-                ->whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
+                ->whereIn('status', ['awaiting_approval', 'confirmed', 'checked_in', 'checked_out'])
                 ->whereBetween('created_at', [$periodStart, $periodEnd])
                 ->orderByDesc('created_at')
                 ->value('total_price');
@@ -191,21 +191,32 @@ class DashboardController extends Controller
      */
     public function bookingsSummary(Request $request): JsonResponse
     {
-        $hotel = $this->resolveHotel($request);
+        $bookingQuery = Booking::query();
+        $roomQuery = Room::query();
 
-        $totalBookings = Booking::where('hotel_id', $hotel->id)->count();
+        if ($request->filled('hotel_id')) {
+            $hotel = $this->resolveHotel($request);
+            $bookingQuery->where('hotel_id', $hotel->id);
+            $roomQuery->where('hotel_id', $hotel->id);
+        }
 
-        $checkInsToday = Booking::where('hotel_id', $hotel->id)
+        $totalBookings = (clone $bookingQuery)->count();
+
+        $checkInsToday = (clone $bookingQuery)
             ->whereDate('check_in', Carbon::today())
             ->whereIn('status', ['confirmed', 'checked_in'])
             ->count();
 
-        $totalRooms = Room::where('hotel_id', $hotel->id)->count();
-        $occupied   = Room::where('hotel_id', $hotel->id)->where('status', 'occupied')->count();
+        $pendingApproval = (clone $bookingQuery)
+            ->where('status', 'awaiting_approval')
+            ->count();
+
+        $totalRooms = (clone $roomQuery)->count();
+        $occupied   = (clone $roomQuery)->where('status', 'occupied')->count();
         $occupancyRate = $totalRooms > 0 ? round(($occupied / $totalRooms) * 100, 1) : 0;
 
-        $revenueMtd = Booking::where('hotel_id', $hotel->id)
-            ->whereIn('status', ['confirmed', 'checked_in', 'checked_out'])
+        $revenueMtd = (clone $bookingQuery)
+            ->whereIn('status', ['awaiting_approval', 'confirmed', 'checked_in', 'checked_out'])
             ->whereMonth('created_at', Carbon::now()->month)
             ->whereYear('created_at', Carbon::now()->year)
             ->sum('total_price');
@@ -213,6 +224,7 @@ class DashboardController extends Controller
         return response()->json([
             'total_bookings' => $totalBookings,
             'check_ins_today' => $checkInsToday,
+            'pending_approval' => $pendingApproval,
             'occupancy_rate' => $occupancyRate,
             'revenue_mtd' => round($revenueMtd, 2),
         ]);

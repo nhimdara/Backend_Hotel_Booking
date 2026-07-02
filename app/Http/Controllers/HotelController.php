@@ -116,6 +116,7 @@ class HotelController extends Controller
         $hotel->loadCount('bookings');
         $hotel->load([
             'badges',
+            'rooms' => fn ($q) => $q->where('status', '!=', 'maintenance')->orderBy('room_type')->orderBy('room_number'),
             'roomTypes' => fn ($q) => $q->where('is_active', true),
         ]);
 
