@@ -105,7 +105,7 @@ class DatabaseSeeder extends Seeder
                 'review_score'    => 4.8,
                 'review_count'    => 187,
                 'amenities'       => ['Sky Bar', 'Onsen Bath', 'Airport Transfer', 'Free WiFi'],
-                'images'          => [],
+                'images'             => [],
                 'is_active'       => true,
             ],
             [
@@ -284,7 +284,7 @@ class DatabaseSeeder extends Seeder
 
         $floor = 1;
         $roomNumber = 101;
-        for ($i = 0; $i < 120; $i++) {
+        for ($i = 0; $i < 27; $i++) {
             [$type, $rate] = $roomTypes[$i % count($roomTypes)];
 
             Room::create([
@@ -294,7 +294,7 @@ class DatabaseSeeder extends Seeder
                 'floor'         => $floor,
                 'base_rate'     => $rate,
                 'max_occupancy' => $type === 'Penthouse Suite' ? 4 : 2,
-                'status'        => $i < 102 ? 'occupied' : ($i < 116 ? 'available' : ($i < 118 ? 'cleaning' : 'maintenance')),
+                'status'        => 'occupied',
             ]);
 
             $roomNumber++;
