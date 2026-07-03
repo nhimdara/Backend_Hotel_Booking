@@ -2,8 +2,7 @@
 /node_modules
 /public/build
 /public/hot
-/public/storage
-/storage/*.key
+
 /vendor
 .env
 .env.backup
@@ -16,3 +15,7 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+
+# Allow specific storage folders for images
+!storage/app/public/hotels/
+!storage/app/public/rooms/
