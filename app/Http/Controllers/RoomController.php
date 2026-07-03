@@ -51,9 +51,14 @@ class RoomController extends Controller
     {
         $validated = $this->validateRoom($request, true);
 
-        if ($request->hasFile('image_files') || $request->filled('image_urls') || $request->filled('images')) {
-            $validated['images'] = $this->imageLinksFromRequest($request, $room->images ?? []);
-        }
+        // Handle file uploads separately from main validation to allow updating URLs without files.
+        $request->validate([
+            'image_files'   => 'nullable|array',
+            'image_files.*' => 'nullable|file|image|max:5120',
+        ]);
+
+        // The 'images' input is the new list of existing URLs. New uploads/URLs are added to it.
+        $validated['images'] = $this->imageLinksFromRequest($request, $request->input('images', []));
 
         unset($validated['image_files'], $validated['image_urls']);
         $room->update($validated);
@@ -86,30 +91,23 @@ class RoomController extends Controller
             'status'         => 'sometimes|in:available,occupied,cleaning,maintenance',
             'description'    => 'nullable|string|max:1000',
             'images'         => 'nullable|array',
-            'images.*'       => 'nullable|url',
+            'images.*'       => 'string', // Existing images are sent as URLs
             'image_urls'     => 'nullable|array',
             'image_urls.*'   => 'nullable|url',
-            'image_files'    => 'nullable|array',
-            'image_files.*'  => 'nullable|file|image|max:5120',
         ]);
     }
 
     private function imageLinksFromRequest(Request $request, array $existingImages = []): array
     {
+        // Start with the list of images the user wants to keep.
+        // If 'images' is not sent, it's an empty array, effectively clearing existing images unless new ones are added.
         $links = $existingImages;
-
-        foreach ($request->input('images', []) as $url) {
-            if (is_string($url) && filter_var($url, FILTER_VALIDATE_URL)) {
-                $links[] = $url;
-            }
-        }
 
         foreach ($request->input('image_urls', []) as $url) {
             if (is_string($url) && filter_var($url, FILTER_VALIDATE_URL)) {
                 $links[] = $url;
             }
         }
-
         foreach ($request->file('image_files', []) as $image) {
             $path = $image->store('rooms', 'public');
             $links[] = url(Storage::url($path));

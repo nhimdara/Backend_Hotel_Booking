@@ -20,7 +20,7 @@ class HotelController extends Controller
         if ($request->filled('location')) {
             $query->where(function ($q) use ($request) {
                 $q->where('location', 'like', '%' . $request->location . '%')
-                  ->orWhere('country', 'like', '%' . $request->location . '%');
+                    ->orWhere('country', 'like', '%' . $request->location . '%');
             });
         }
 
@@ -47,7 +47,7 @@ class HotelController extends Controller
         }
 
         $sortBy  = in_array($request->sort_by, ['price_per_night', 'review_score', 'star_rating'])
-                    ? $request->sort_by : 'review_score';
+            ? $request->sort_by : 'review_score';
         $sortDir = $request->sort_dir === 'asc' ? 'asc' : 'desc';
         $query->orderBy($sortBy, $sortDir);
 
@@ -116,8 +116,8 @@ class HotelController extends Controller
         $hotel->loadCount('bookings');
         $hotel->load([
             'badges',
-            'rooms' => fn ($q) => $q->where('status', '!=', 'maintenance')->orderBy('room_type')->orderBy('room_number'),
-            'roomTypes' => fn ($q) => $q->where('is_active', true),
+            'rooms' => fn($q) => $q->where('status', '!=', 'maintenance')->orderBy('room_type')->orderBy('room_number'),
+            'roomTypes' => fn($q) => $q->where('is_active', true),
         ]);
 
         return response()->json($hotel);
@@ -141,8 +141,7 @@ class HotelController extends Controller
             'star_rating'     => 'sometimes|integer|between:1,5',
             'amenities'       => 'nullable|array',
             'images'          => 'nullable|array',
-            'images.*'        => 'nullable',
-            'image'           => 'nullable|file|image|max:5120',
+            'images.*'        => 'string', // Existing images are sent as URLs
             'image_urls'      => 'nullable|array',
             'image_urls.*'    => 'url',
             'is_active'       => 'sometimes|boolean',
@@ -150,9 +149,10 @@ class HotelController extends Controller
             'badge_ids.*'     => 'exists:badges,id',
         ]);
 
-        if ($request->hasFile('images') || $request->hasFile('image') || $request->filled('images') || $request->filled('image_urls')) {
-            $validated['images'] = $this->imageLinksFromRequest($request, $hotel->images ?? []);
-        }
+        // Handle file uploads and URL additions for images.
+        // The 'images' input from the request is the new desired list of existing URLs.
+        $validated['images'] = $this->imageLinksFromRequest($request, $request->input('images', []));
+        $request->validate(['image' => 'nullable|file|image|max:5120']); // Validate single file upload separately
 
         unset($validated['image'], $validated['image_urls']);
 
@@ -181,16 +181,12 @@ class HotelController extends Controller
 
     private function imageLinksFromRequest(Request $request, array $existingImages = []): array
     {
+        // Start with the list of images the user wants to keep.
+        // If 'images' is not sent, it's an empty array, effectively clearing existing images unless new ones are added.
         $links = $existingImages;
 
         foreach ($request->input('image_urls', []) as $url) {
             $links[] = $url;
-        }
-
-        foreach ($request->input('images', []) as $url) {
-            if (is_string($url) && filter_var($url, FILTER_VALIDATE_URL)) {
-                $links[] = $url;
-            }
         }
 
         if ($request->hasFile('image')) {
