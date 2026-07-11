@@ -193,12 +193,9 @@ class DashboardController extends Controller
     {
         $bookingQuery = Booking::query();
         $roomQuery = Room::query();
-
-        if ($request->filled('hotel_id')) {
-            $hotel = $this->resolveHotel($request);
-            $bookingQuery->where('hotel_id', $hotel->id);
-            $roomQuery->where('hotel_id', $hotel->id);
-        }
+        $hotel = $this->resolveHotel($request);
+        $bookingQuery->where('hotel_id', $hotel->id);
+        $roomQuery->where('hotel_id', $hotel->id);
 
         $totalBookings = (clone $bookingQuery)->count();
 
@@ -237,6 +234,14 @@ class DashboardController extends Controller
      */
     private function resolveHotel(Request $request): Hotel
     {
+        $admin = $request->user();
+        if (!$admin->isSuperAdmin()) {
+            abort_unless($admin->hotel_id, 422, 'Your admin account is not assigned to a hotel.');
+            if ($request->filled('hotel_id')) {
+                abort_unless($request->integer('hotel_id') === (int) $admin->hotel_id, 403, 'You cannot access another hotel.');
+            }
+            return Hotel::findOrFail($admin->hotel_id);
+        }
         if ($request->filled('hotel_id')) {
             return Hotel::findOrFail($request->get('hotel_id'));
         }

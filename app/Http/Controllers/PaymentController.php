@@ -133,7 +133,10 @@ class PaymentController extends Controller
 
     private function canAccessPayment(Request $request, Payment $payment): bool
     {
-        return $request->user()->isAdmin() || $payment->booking->user_id === $request->user()->id;
+        if ($request->user()->isAdmin()) {
+            return $request->user()->canManageHotel((int) $payment->booking->hotel_id);
+        }
+        return $payment->booking->user_id === $request->user()->id;
     }
 
     private function buildQrPayload(): string

@@ -14,7 +14,10 @@ class RoomController extends Controller
     {
         $query = Room::with('hotel')->latest();
 
-        if ($request->filled('hotel_id')) {
+        if (!$request->user()->isSuperAdmin()) {
+            abort_unless($request->user()->hotel_id, 422, 'Your admin account is not assigned to a hotel.');
+            $query->where('hotel_id', $request->user()->hotel_id);
+        } elseif ($request->filled('hotel_id')) {
             $query->where('hotel_id', $request->integer('hotel_id'));
         }
 
@@ -23,15 +26,21 @@ class RoomController extends Controller
         ]);
     }
 
-    public function show(Room $room): JsonResponse
+    public function show(Request $request, Room $room): JsonResponse
     {
+        $this->authorizeHotel($request, (int) $room->hotel_id);
         return response()->json($room->load('hotel'));
     }
 
     public function store(Request $request): JsonResponse
     {
         $validated = $this->validateRoom($request);
-        $validated['hotel_id'] = $validated['hotel_id'] ?? Hotel::orderBy('id')->value('id');
+        if (!$request->user()->isSuperAdmin()) {
+            abort_unless($request->user()->hotel_id, 422, 'Your admin account is not assigned to a hotel.');
+            $validated['hotel_id'] = $request->user()->hotel_id;
+        } else {
+            $validated['hotel_id'] = $validated['hotel_id'] ?? Hotel::orderBy('id')->value('id');
+        }
         $validated['images'] = $this->imageLinksFromRequest($request);
         unset($validated['image_files'], $validated['image_urls']);
 
@@ -49,7 +58,11 @@ class RoomController extends Controller
 
     public function update(Request $request, Room $room): JsonResponse
     {
+        $this->authorizeHotel($request, (int) $room->hotel_id);
         $validated = $this->validateRoom($request, true);
+        if (!$request->user()->isSuperAdmin()) {
+            unset($validated['hotel_id']);
+        }
 
         // Handle file uploads separately from main validation to allow updating URLs without files.
         $request->validate([
@@ -69,8 +82,9 @@ class RoomController extends Controller
         ]);
     }
 
-    public function destroy(Room $room): JsonResponse
+    public function destroy(Request $request, Room $room): JsonResponse
     {
+        $this->authorizeHotel($request, (int) $room->hotel_id);
         $room->delete();
 
         return response()->json(['message' => 'Room deleted.']);
@@ -95,6 +109,11 @@ class RoomController extends Controller
             'image_urls'     => 'nullable|array',
             'image_urls.*'   => 'nullable|url',
         ]);
+    }
+
+    private function authorizeHotel(Request $request, int $hotelId): void
+    {
+        abort_unless($request->user()->canManageHotel($hotelId), 403, 'You cannot manage rooms from another hotel.');
     }
 
     private function imageLinksFromRequest(Request $request, array $existingImages = []): array

@@ -52,6 +52,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware(IsAdmin::class)->group(function () {
 
         // Hotel management
+        Route::get('/admin/hotels',     [HotelController::class, 'adminIndex']);
         Route::post('/hotels',           [HotelController::class, 'store']);
         Route::put('/hotels/{hotel}',    [HotelController::class, 'update']);
         Route::delete('/hotels/{hotel}', [HotelController::class, 'destroy']);
@@ -60,6 +61,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/users',                    [AuthController::class, 'allUsers']);
         Route::put('/admin/users/{user}/role',        [AuthController::class, 'changeRole']);
         Route::delete('/admin/users/{user}',          [AuthController::class, 'deleteUser']);
+
+        // Administrators are always scoped to the signed-in admin's hotel.
+        Route::get('/admin/hotel-admins',              [AuthController::class, 'hotelAdmins']);
+        Route::post('/admin/hotel-admins',             [AuthController::class, 'createHotelAdmin']);
+        Route::put('/admin/hotel-admins/{user}',       [AuthController::class, 'updateHotelAdmin']);
+        Route::delete('/admin/hotel-admins/{user}',    [AuthController::class, 'deleteHotelAdmin']);
 
         // Booking management
         Route::get('/admin/bookings',                 [BookingController::class, 'index']);

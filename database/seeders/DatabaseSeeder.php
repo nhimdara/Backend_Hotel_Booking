@@ -21,7 +21,7 @@ class DatabaseSeeder extends Seeder
             'name'     => 'Alex Rivers',
             'email'    => 'admin@stayeasy.com',
             'password' => Hash::make('password'),
-            'role'     => 'admin',
+            'role'     => 'super_admin',
         ]);
 
         // Regular user
@@ -145,6 +145,8 @@ class DatabaseSeeder extends Seeder
         foreach ($hotels as $data) {
             Hotel::create($data);
         }
+
+        $admin->update(['hotel_id' => Hotel::query()->value('id')]);
 
         // Badges shown as colored pills on hotel cards
         $badgeDefs = [

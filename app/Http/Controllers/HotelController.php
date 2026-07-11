@@ -9,6 +9,16 @@ use Illuminate\Support\Facades\Storage;
 
 class HotelController extends Controller
 {
+    public function adminIndex(Request $request): JsonResponse
+    {
+        $query = Hotel::query()->with('badges');
+        if (!$request->user()->isSuperAdmin()) {
+            abort_unless($request->user()->hotel_id, 422, 'Your admin account is not assigned to a hotel.');
+            $query->whereKey($request->user()->hotel_id);
+        }
+        $hotels = $query->orderBy('name')->get()->map(fn (Hotel $hotel) => $this->withPublicImages($hotel));
+        return response()->json(['hotels' => $hotels]);
+    }
     /**
      * List hotels with optional search & filters.
      * GET /api/hotels?location=Paris&min_price=100&max_price=500&star_rating=4&badge=Top+Rated&per_page=15
@@ -52,6 +62,7 @@ class HotelController extends Controller
         $query->orderBy($sortBy, $sortDir);
 
         $hotels = $query->paginate($request->integer('per_page', 15));
+        $hotels->getCollection()->transform(fn (Hotel $hotel) => $this->withPublicImages($hotel));
 
         // Stats bar shown on search results: "16 Matches / $419 Avg Price / 4.7 Guest Rating"
         $stats = [
@@ -72,6 +83,7 @@ class HotelController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Only a super admin can create hotels.');
         $validated = $request->validate([
             'name'            => 'required|string|max:255',
             'slug'            => 'required|string|unique:hotels,slug',
@@ -103,7 +115,7 @@ class HotelController extends Controller
 
         return response()->json([
             'message' => 'Hotel created.',
-            'hotel'   => $hotel->load('badges'),
+            'hotel'   => $this->withPublicImages($hotel->load('badges')),
         ], 201);
     }
 
@@ -120,7 +132,7 @@ class HotelController extends Controller
             'roomTypes' => fn($q) => $q->where('is_active', true),
         ]);
 
-        return response()->json($hotel);
+        return response()->json($this->withPublicImages($hotel));
     }
 
     /**
@@ -129,6 +141,7 @@ class HotelController extends Controller
      */
     public function update(Request $request, Hotel $hotel): JsonResponse
     {
+        abort_unless($request->user()->canManageHotel((int) $hotel->id), 403, 'You cannot update another hotel.');
         $validated = $request->validate([
             'name'            => 'sometimes|string|max:255',
             'slug'            => 'sometimes|string|unique:hotels,slug,' . $hotel->id,
@@ -164,7 +177,7 @@ class HotelController extends Controller
 
         return response()->json([
             'message' => 'Hotel updated.',
-            'hotel'   => $hotel->fresh()->load('badges'),
+            'hotel'   => $this->withPublicImages($hotel->fresh()->load('badges')),
         ]);
     }
 
@@ -172,8 +185,9 @@ class HotelController extends Controller
      * Delete a hotel.
      * DELETE /api/hotels/{hotel}
      */
-    public function destroy(Hotel $hotel): JsonResponse
+    public function destroy(Request $request, Hotel $hotel): JsonResponse
     {
+        abort_unless($request->user()->canManageHotel((int) $hotel->id), 403, 'You cannot delete another hotel.');
         $hotel->delete();
 
         return response()->json(['message' => 'Hotel deleted.']);
@@ -191,14 +205,52 @@ class HotelController extends Controller
 
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('hotels', 'public');
-            $links[] = url(Storage::url($path));
+            abort_unless($path && Storage::disk('public')->exists($path), 500, 'The hotel image could not be stored.');
+            $links[] = '/storage/' . ltrim($path, '/');
         }
 
         foreach ($request->file('images', []) as $image) {
             $path = $image->store('hotels', 'public');
-            $links[] = url(Storage::url($path));
+            abort_unless($path && Storage::disk('public')->exists($path), 500, 'A hotel image could not be stored.');
+            $links[] = '/storage/' . ltrim($path, '/');
         }
 
-        return array_values(array_unique($links));
+        return array_values(array_unique(array_map(fn ($link) => $this->normalizeImageLink($link), $links)));
+    }
+
+    private function withPublicImages(Hotel $hotel): Hotel
+    {
+        $images = collect($hotel->images ?? [])
+            ->map(fn ($link) => $this->normalizeImageLink($link))
+            ->filter(fn ($link) => !$this->isMissingLocalImage($link))
+            ->values()
+            ->all();
+
+        $hotel->setAttribute('images', $images);
+        return $hotel;
+    }
+
+    private function normalizeImageLink(string $link): string
+    {
+        $path = parse_url(trim($link), PHP_URL_PATH) ?: trim($link);
+        if (str_starts_with($path, '/storage/')) {
+            return $path;
+        }
+        if (str_starts_with($path, 'storage/')) {
+            return '/' . $path;
+        }
+        if (str_starts_with($path, 'hotels/')) {
+            return '/storage/' . $path;
+        }
+        return $link;
+    }
+
+    private function isMissingLocalImage(string $link): bool
+    {
+        $path = parse_url($link, PHP_URL_PATH) ?: $link;
+        if (!str_starts_with($path, '/storage/')) {
+            return false;
+        }
+        return !Storage::disk('public')->exists(substr($path, strlen('/storage/')));
     }
 }

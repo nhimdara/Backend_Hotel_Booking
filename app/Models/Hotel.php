@@ -43,6 +43,11 @@ class Hotel extends Model
         return $this->hasMany(Booking::class);
     }
 
+    public function admins(): HasMany
+    {
+        return $this->hasMany(User::class)->whereIn('role', ['admin', 'super_admin']);
+    }
+
     public function rooms(): HasMany
     {
         return $this->hasMany(Room::class);

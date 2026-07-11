@@ -22,6 +22,9 @@ class BookingController extends Controller
 
         if (!$request->user()->isAdmin()) {
             $query->where('user_id', $request->user()->id);
+        } elseif (!$request->user()->isSuperAdmin()) {
+            abort_unless($request->user()->hotel_id, 422, 'Your admin account is not assigned to a hotel.');
+            $query->where('hotel_id', $request->user()->hotel_id);
         } elseif ($request->filled('hotel_id')) {
             $query->where('hotel_id', $request->integer('hotel_id'));
         }
@@ -100,6 +103,9 @@ class BookingController extends Controller
      */
     public function show(Request $request, Booking $booking): JsonResponse
     {
+        if ($request->user()->isAdmin()) {
+            abort_unless($request->user()->canManageHotel((int) $booking->hotel_id), 403, 'You cannot access bookings from another hotel.');
+        }
         if (!$request->user()->isAdmin() && $booking->user_id !== $request->user()->id) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
@@ -114,6 +120,9 @@ class BookingController extends Controller
      */
     public function update(Request $request, Booking $booking): JsonResponse
     {
+        if ($request->user()->isAdmin()) {
+            abort_unless($request->user()->canManageHotel((int) $booking->hotel_id), 403, 'You cannot update bookings from another hotel.');
+        }
         if (!$request->user()->isAdmin() && $booking->user_id !== $request->user()->id) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
@@ -161,6 +170,9 @@ class BookingController extends Controller
      */
     public function destroy(Request $request, Booking $booking): JsonResponse
     {
+        if ($request->user()->isAdmin()) {
+            abort_unless($request->user()->canManageHotel((int) $booking->hotel_id), 403, 'You cannot delete bookings from another hotel.');
+        }
         if (!$request->user()->isAdmin() && $booking->user_id !== $request->user()->id) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }

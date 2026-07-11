@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -17,6 +18,7 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'hotel_id',
     ];
 
     protected $hidden = [
@@ -31,11 +33,26 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        return $this->role === 'admin';
+        return in_array($this->role, ['admin', 'super_admin'], true);
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === 'super_admin';
+    }
+
+    public function canManageHotel(int $hotelId): bool
+    {
+        return $this->isSuperAdmin() || ($this->isAdmin() && (int) $this->hotel_id === $hotelId);
     }
 
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class);
+    }
+
+    public function hotel(): BelongsTo
+    {
+        return $this->belongsTo(Hotel::class);
     }
 }
