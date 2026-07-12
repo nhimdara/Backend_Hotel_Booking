@@ -13,11 +13,13 @@ return new class extends Migration
             DB::statement("ALTER TABLE users MODIFY role ENUM('user','admin','super_admin') NOT NULL DEFAULT 'user'");
         }
 
-        DB::table('users')->where('role', 'admin')->where('is_super_admin', true)->update(['role' => 'super_admin']);
+        if (Schema::hasColumn('users', 'is_super_admin')) {
+            DB::table('users')->where('role', 'admin')->where('is_super_admin', true)->update(['role' => 'super_admin']);
 
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('is_super_admin');
-        });
+            Schema::table('users', function (Blueprint $table) {
+                $table->dropColumn('is_super_admin');
+            });
+        }
     }
 
     public function down(): void
