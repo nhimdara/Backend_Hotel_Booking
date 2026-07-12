@@ -8,6 +8,7 @@ use App\Models\Room;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardController extends Controller
 {
@@ -17,11 +18,14 @@ class DashboardController extends Controller
     public function snapshot(Request $request): JsonResponse
     {
         $request->merge(['limit' => $request->integer('limit', 10)]);
-        return response()->json([
+        $hotel = $this->resolveHotel($request);
+        $key = implode(':', ['dashboard-snapshot', $request->user()->id, $hotel->id, $request->get('range', 'current')]);
+
+        return response()->json(Cache::remember($key, now()->addSeconds(15), fn () => [
             'overview' => $this->overview($request)->getData(true),
             'revenue' => $this->revenuePerformance($request)->getData(true),
             'recent_bookings' => $this->recentBookings($request)->getData(true),
-        ]);
+        ]));
     }
 
     /**
@@ -34,35 +38,34 @@ class DashboardController extends Controller
     {
         $hotel = $this->resolveHotel($request);
 
-        $totalRooms = Room::where('hotel_id', $hotel->id)->count();
-        $occupied   = Room::where('hotel_id', $hotel->id)->where('status', 'occupied')->count();
+        $roomStats = Room::where('hotel_id', $hotel->id)
+            ->selectRaw("COUNT(*) as total_rooms, SUM(CASE WHEN status = 'occupied' THEN 1 ELSE 0 END) as occupied")
+            ->first();
+        $totalRooms = (int) ($roomStats->total_rooms ?? 0);
+        $occupied = (int) ($roomStats->occupied ?? 0);
 
         $occupancyRate = $totalRooms > 0 ? round(($occupied / $totalRooms) * 100, 1) : 0;
 
-        $todayCheckIns = Booking::where('hotel_id', $hotel->id)
+        $checkInStats = Booking::where('hotel_id', $hotel->id)
             ->whereDate('check_in', Carbon::today())
-            ->whereIn('status', ['confirmed', 'checked_in'])
-            ->count();
+            ->selectRaw("COUNT(*) as expected, SUM(CASE WHEN status IN ('confirmed','checked_in') THEN 1 ELSE 0 END) as actual")
+            ->first();
+        $todayCheckIns = (int) ($checkInStats->actual ?? 0);
+        $expectedToday = (int) ($checkInStats->expected ?? 0);
 
-        $expectedToday = Booking::where('hotel_id', $hotel->id)
-            ->whereDate('check_in', Carbon::today())
-            ->count();
-
-        $revenueMtd = Booking::where('hotel_id', $hotel->id)
+        $monthStart = Carbon::now()->startOfMonth();
+        $todayStart = Carbon::today();
+        $yesterdayStart = Carbon::yesterday();
+        $revenueStats = Booking::where('hotel_id', $hotel->id)
             ->whereIn('status', ['awaiting_approval', 'confirmed', 'checked_in', 'checked_out'])
-            ->whereMonth('created_at', Carbon::now()->month)
-            ->whereYear('created_at', Carbon::now()->year)
-            ->sum('total_price');
-
-        $revenueYesterday = Booking::where('hotel_id', $hotel->id)
-            ->whereIn('status', ['awaiting_approval', 'confirmed', 'checked_in', 'checked_out'])
-            ->whereDate('created_at', Carbon::yesterday())
-            ->sum('total_price');
-
-        $revenueToday = Booking::where('hotel_id', $hotel->id)
-            ->whereIn('status', ['awaiting_approval', 'confirmed', 'checked_in', 'checked_out'])
-            ->whereDate('created_at', Carbon::today())
-            ->sum('total_price');
+            ->where('created_at', '>=', $monthStart)
+            ->selectRaw(
+                'SUM(total_price) as mtd, SUM(CASE WHEN created_at >= ? THEN total_price ELSE 0 END) as today, SUM(CASE WHEN created_at >= ? AND created_at < ? THEN total_price ELSE 0 END) as yesterday',
+                [$todayStart, $yesterdayStart, $todayStart]
+            )->first();
+        $revenueMtd = (float) ($revenueStats->mtd ?? 0);
+        $revenueToday = (float) ($revenueStats->today ?? 0);
+        $revenueYesterday = (float) ($revenueStats->yesterday ?? 0);
 
         $revenueDeltaPct = $revenueYesterday > 0
             ? round((($revenueToday - $revenueYesterday) / $revenueYesterday) * 100, 1)
@@ -152,7 +155,7 @@ class DashboardController extends Controller
         $hotel = $this->resolveHotel($request);
         $limit = $request->integer('limit', 5);
 
-        $bookings = Booking::with('user', 'hotel')
+        $bookings = Booking::with('user:id,name')
             ->where('hotel_id', $hotel->id)
             ->latest()
             ->limit($limit)
