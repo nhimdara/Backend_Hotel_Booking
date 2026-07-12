@@ -133,11 +133,12 @@ class AuthController extends Controller
      */
     public function changeRole(Request $request, User $user): JsonResponse
     {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Only a super admin can change global user roles.');
+
         $validated = $request->validate([
             'role' => 'required|in:user,admin,super_admin',
         ]);
 
-        abort_if($validated['role'] === 'super_admin' && !$request->user()->isSuperAdmin(), 403, 'Only a super admin can grant this role.');
         abort_if($request->user()->is($user) && $validated['role'] !== 'super_admin', 422, 'You cannot remove your own super-admin access.');
 
         $user->update(['role' => $validated['role']]);
@@ -151,8 +152,11 @@ class AuthController extends Controller
     /**
      * Delete a user (admin).
      */
-    public function deleteUser(User $user): JsonResponse
+    public function deleteUser(Request $request, User $user): JsonResponse
     {
+        abort_unless($request->user()->isSuperAdmin(), 403, 'Only a super admin can delete users globally.');
+        abort_if($request->user()->is($user), 422, 'You cannot delete your own super-admin account.');
+        $user->tokens()->delete();
         $user->delete();
 
         return response()->json(['message' => 'User deleted.']);

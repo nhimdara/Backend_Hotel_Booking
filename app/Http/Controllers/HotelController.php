@@ -96,21 +96,24 @@ class HotelController extends Controller
             'star_rating'     => 'required|integer|between:1,5',
             'amenities'       => 'nullable|array',
             'images'          => 'nullable|array',
-            'images.*'        => 'nullable',
+            'images.*'        => 'nullable|string',
             'image'           => 'nullable|file|image|max:5120',
+            'image_files'     => 'nullable|array|max:12',
+            'image_files.*'   => 'file|image|max:5120',
             'image_urls'      => 'nullable|array',
             'image_urls.*'    => 'url',
             'badge_ids'       => 'nullable|array',
             'badge_ids.*'     => 'exists:badges,id',
         ]);
 
+        $badgeIds = $validated['badge_ids'] ?? [];
         $validated['images'] = $this->imageLinksFromRequest($request);
-        unset($validated['image'], $validated['image_urls']);
+        unset($validated['image'], $validated['image_files'], $validated['image_urls'], $validated['badge_ids']);
 
         $hotel = Hotel::create($validated);
 
-        if (!empty($validated['badge_ids'])) {
-            $hotel->badges()->sync($validated['badge_ids']);
+        if (!empty($badgeIds)) {
+            $hotel->badges()->sync($badgeIds);
         }
 
         return response()->json([
@@ -155,6 +158,9 @@ class HotelController extends Controller
             'amenities'       => 'nullable|array',
             'images'          => 'nullable|array',
             'images.*'        => 'string', // Existing images are sent as URLs
+            'image'           => 'nullable|file|image|max:5120',
+            'image_files'     => 'nullable|array|max:12',
+            'image_files.*'   => 'file|image|max:5120',
             'image_urls'      => 'nullable|array',
             'image_urls.*'    => 'url',
             'is_active'       => 'sometimes|boolean',
@@ -164,15 +170,21 @@ class HotelController extends Controller
 
         // Handle file uploads and URL additions for images.
         // The 'images' input from the request is the new desired list of existing URLs.
-        $validated['images'] = $this->imageLinksFromRequest($request, $request->input('images', []));
-        $request->validate(['image' => 'nullable|file|image|max:5120']); // Validate single file upload separately
+        // Preserve the current gallery unless the client explicitly sends an
+        // `images` list. New uploads and URLs are appended to that gallery.
+        $hasBadgeIds = array_key_exists('badge_ids', $validated);
+        $badgeIds = $validated['badge_ids'] ?? [];
+        $existingImages = $request->has('images')
+            ? $request->input('images', [])
+            : ($hotel->images ?? []);
+        $validated['images'] = $this->imageLinksFromRequest($request, $existingImages);
 
-        unset($validated['image'], $validated['image_urls']);
+        unset($validated['image'], $validated['image_files'], $validated['image_urls'], $validated['badge_ids']);
 
         $hotel->update($validated);
 
-        if (array_key_exists('badge_ids', $validated)) {
-            $hotel->badges()->sync($validated['badge_ids'] ?? []);
+        if ($hasBadgeIds) {
+            $hotel->badges()->sync($badgeIds);
         }
 
         return response()->json([
@@ -210,6 +222,12 @@ class HotelController extends Controller
         }
 
         foreach ($request->file('images', []) as $image) {
+            $path = $image->store('hotels', 'public');
+            abort_unless($path && Storage::disk('public')->exists($path), 500, 'A hotel image could not be stored.');
+            $links[] = '/storage/' . ltrim($path, '/');
+        }
+
+        foreach ($request->file('image_files', []) as $image) {
             $path = $image->store('hotels', 'public');
             abort_unless($path && Storage::disk('public')->exists($path), 500, 'A hotel image could not be stored.');
             $links[] = '/storage/' . ltrim($path, '/');

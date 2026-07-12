@@ -71,7 +71,10 @@ class RoomController extends Controller
         ]);
 
         // The 'images' input is the new list of existing URLs. New uploads/URLs are added to it.
-        $validated['images'] = $this->imageLinksFromRequest($request, $request->input('images', []));
+        $existingImages = $request->has('images')
+            ? $request->input('images', [])
+            : ($room->images ?? []);
+        $validated['images'] = $this->imageLinksFromRequest($request, $existingImages);
 
         unset($validated['image_files'], $validated['image_urls']);
         $room->update($validated);
@@ -108,6 +111,8 @@ class RoomController extends Controller
             'images.*'       => 'string', // Existing images are sent as URLs
             'image_urls'     => 'nullable|array',
             'image_urls.*'   => 'nullable|url',
+            'image_files'    => 'nullable|array|max:12',
+            'image_files.*'  => 'file|image|max:5120',
         ]);
     }
 
