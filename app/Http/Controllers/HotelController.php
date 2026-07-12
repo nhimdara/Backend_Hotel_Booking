@@ -61,20 +61,25 @@ class HotelController extends Controller
         $sortDir = $request->sort_dir === 'asc' ? 'asc' : 'desc';
         $query->orderBy($sortBy, $sortDir);
 
-        $hotels = $query->paginate($request->integer('per_page', 15));
+        $aggregates = (clone $query)
+            ->reorder()
+            ->selectRaw('COUNT(*) as matches, AVG(price_per_night) as avg_price, AVG(review_score) as avg_rating')
+            ->first();
+
+        $hotels = $query->paginate(min(100, max(1, $request->integer('per_page', 15))));
         $hotels->getCollection()->transform(fn (Hotel $hotel) => $this->withPublicImages($hotel));
 
         // Stats bar shown on search results: "16 Matches / $419 Avg Price / 4.7 Guest Rating"
         $stats = [
-            'matches'      => $hotels->total(),
-            'avg_price'    => round($query->avg('price_per_night'), 0),
-            'avg_rating'   => round($query->avg('review_score'), 1),
+            'matches'      => (int) ($aggregates->matches ?? 0),
+            'avg_price'    => round((float) ($aggregates->avg_price ?? 0), 0),
+            'avg_rating'   => round((float) ($aggregates->avg_rating ?? 0), 1),
         ];
 
         return response()->json([
             'stats'  => $stats,
             'hotels' => $hotels,
-        ]);
+        ])->header('Cache-Control', 'public, max-age=30, stale-while-revalidate=60');
     }
 
     /**
