@@ -80,6 +80,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         // Dashboard analytics (Overview screen)
         Route::get('/admin/dashboard/overview',            [DashboardController::class, 'overview']);
+        Route::get('/admin/dashboard/snapshot',            [DashboardController::class, 'snapshot']);
         Route::get('/admin/dashboard/revenue-performance',  [DashboardController::class, 'revenuePerformance']);
         Route::get('/admin/dashboard/recent-bookings',      [DashboardController::class, 'recentBookings']);
         Route::get('/admin/dashboard/bookings-summary',     [DashboardController::class, 'bookingsSummary']);

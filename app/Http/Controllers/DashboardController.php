@@ -8,10 +8,22 @@ use App\Models\Room;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
+    private ?Hotel $resolvedHotel = null;
+
+    /** Return everything required by the overview screen in one round trip. */
+    public function snapshot(Request $request): JsonResponse
+    {
+        $request->merge(['limit' => $request->integer('limit', 10)]);
+        return response()->json([
+            'overview' => $this->overview($request)->getData(true),
+            'revenue' => $this->revenuePerformance($request)->getData(true),
+            'recent_bookings' => $this->recentBookings($request)->getData(true),
+        ]);
+    }
+
     /**
      * GET /api/admin/dashboard/overview?hotel_id=1
      *
@@ -93,57 +105,35 @@ class DashboardController extends Controller
         if ($range === 'yearly') {
             $start = Carbon::now()->subMonths(11)->startOfMonth();
             $end   = Carbon::now()->endOfMonth();
-            $groupFormat = '%Y-%m';
         } else {
             $start = Carbon::now()->startOfMonth();
             $end   = Carbon::now()->endOfMonth();
-            $groupFormat = '%Y-%m-%d';
         }
 
-        $rows = Booking::where('hotel_id', $hotel->id)
+        // Load the compact revenue input once and group it in memory. The old
+        // implementation ran two additional queries for every chart period.
+        $bookings = Booking::where('hotel_id', $hotel->id)
             ->whereIn('status', ['awaiting_approval', 'confirmed', 'checked_in', 'checked_out'])
             ->whereBetween('created_at', [$start, $end])
-            ->select([
-                DB::raw("DATE_FORMAT(created_at, '{$groupFormat}') as period"),
-                DB::raw('MIN(total_price) as low'),
-                DB::raw('MAX(total_price) as high'),
-                DB::raw('SUM(total_price) as total'),
-                DB::raw('COUNT(*) as bookings_count'),
-            ])
-            ->groupBy('period')
-            ->orderBy('period')
-            ->get();
+            ->orderBy('created_at')
+            ->get(['created_at', 'total_price']);
 
-        // Build OHLC: opening = first booking's price that day, closing = last booking's price that day
-        $series = $rows->map(function ($row) use ($hotel, $range) {
-            $periodStart = $range === 'yearly'
-                ? Carbon::createFromFormat('Y-m', $row->period)->startOfMonth()
-                : Carbon::createFromFormat('Y-m-d', $row->period);
-            $periodEnd = $range === 'yearly'
-                ? (clone $periodStart)->endOfMonth()
-                : (clone $periodStart)->endOfDay();
+        $series = $bookings
+            ->groupBy(fn (Booking $booking) => $range === 'yearly'
+                ? $booking->created_at->format('Y-m')
+                : $booking->created_at->format('Y-m-d'))
+            ->map(function ($periodBookings, $period) {
+                $prices = $periodBookings->pluck('total_price')->map(fn ($price) => (float) $price);
 
-            $opening = Booking::where('hotel_id', $hotel->id)
-                ->whereIn('status', ['awaiting_approval', 'confirmed', 'checked_in', 'checked_out'])
-                ->whereBetween('created_at', [$periodStart, $periodEnd])
-                ->orderBy('created_at')
-                ->value('total_price');
-
-            $closing = Booking::where('hotel_id', $hotel->id)
-                ->whereIn('status', ['awaiting_approval', 'confirmed', 'checked_in', 'checked_out'])
-                ->whereBetween('created_at', [$periodStart, $periodEnd])
-                ->orderByDesc('created_at')
-                ->value('total_price');
-
-            return [
-                'date'    => $row->period,
-                'opening' => round((float) $opening, 2),
-                'high'    => round((float) $row->high, 2),
-                'low'     => round((float) $row->low, 2),
-                'closing' => round((float) $closing, 2),
-                'volume'  => (int) $row->bookings_count,
+                return [
+                'date'    => $period,
+                'opening' => round((float) $prices->first(), 2),
+                'high'    => round((float) $prices->max(), 2),
+                'low'     => round((float) $prices->min(), 2),
+                'closing' => round((float) $prices->last(), 2),
+                'volume'  => $prices->count(),
             ];
-        });
+            })->values();
 
         return response()->json([
             'hotel_id' => $hotel->id,
@@ -234,19 +224,23 @@ class DashboardController extends Controller
      */
     private function resolveHotel(Request $request): Hotel
     {
+        if ($this->resolvedHotel) {
+            return $this->resolvedHotel;
+        }
+
         $admin = $request->user();
         if (!$admin->isSuperAdmin()) {
             abort_unless($admin->hotel_id, 422, 'Your admin account is not assigned to a hotel.');
             if ($request->filled('hotel_id')) {
                 abort_unless($request->integer('hotel_id') === (int) $admin->hotel_id, 403, 'You cannot access another hotel.');
             }
-            return Hotel::findOrFail($admin->hotel_id);
+            return $this->resolvedHotel = Hotel::findOrFail($admin->hotel_id);
         }
         if ($request->filled('hotel_id')) {
-            return Hotel::findOrFail($request->get('hotel_id'));
+            return $this->resolvedHotel = Hotel::findOrFail($request->get('hotel_id'));
         }
 
-        return Hotel::orderBy('id')->firstOrFail();
+        return $this->resolvedHotel = Hotel::orderBy('id')->firstOrFail();
     }
 
     private function initials(string $name): string
