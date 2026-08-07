@@ -3,7 +3,7 @@ FROM php:8.2-apache
 ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libpq-dev libzip-dev unzip \
+    && apt-get install -y --no-install-recommends libpq-dev libsqlite3-dev libzip-dev unzip \
     && docker-php-ext-install pdo_pgsql pdo_mysql pdo_sqlite zip opcache \
     && a2enmod rewrite \
     && sed -ri 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf \
