@@ -7,6 +7,12 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Render deployment
+
+This API deploys from `render.yaml` as a Docker web service backed by Render PostgreSQL. Configure `APP_KEY`, `APP_URL`, and `CORS_ALLOWED_ORIGINS` in Render. The container runs production migrations automatically and exposes `GET /api/health` for health checks.
+
+If the configured external database is unreachable, the container initializes a seeded SQLite database so the public demo API can still start. SQLite storage on a free Render instance is temporary; connect Render PostgreSQL for persistent production data.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
