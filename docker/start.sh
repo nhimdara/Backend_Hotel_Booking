@@ -1,14 +1,14 @@
 #!/usr/bin/env sh
 set -eu
 
-# Render provides the public port at runtime; Apache defaults to port 80.
 RENDER_PORT="${PORT:-10000}"
-sed -ri "s/Listen 80/Listen ${RENDER_PORT}/" /etc/apache2/ports.conf
-sed -ri "s/<VirtualHost \*:80>/<VirtualHost *:${RENDER_PORT}>/" /etc/apache2/sites-available/000-default.conf
 
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
-php artisan migrate --force
 
-exec apache2-foreground
+if ! php artisan migrate --force; then
+    echo "WARNING: Database migration failed. Starting the web service so /api/health and Render logs remain available." >&2
+fi
+
+exec php artisan serve --host=0.0.0.0 --port="${RENDER_PORT}"
