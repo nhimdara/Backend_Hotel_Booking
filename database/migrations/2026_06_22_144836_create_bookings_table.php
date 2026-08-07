@@ -17,7 +17,7 @@ return new class extends Migration
             $table->integer('guests')->default(1);
             $table->string('room_type')->default('standard');
             $table->decimal('total_price', 10, 2);
-            $table->enum('status', ['pending', 'confirmed', 'checked_in', 'checked_out', 'cancelled'])->default('pending');
+            $table->enum('status', ['pending', 'awaiting_approval', 'confirmed', 'checked_in', 'checked_out', 'cancelled', 'denied'])->default('pending');
             $table->string('booking_reference')->unique();
             $table->text('special_requests')->nullable();
             $table->timestamps();

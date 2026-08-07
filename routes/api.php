@@ -9,6 +9,11 @@ use App\Http\Controllers\RoomController;
 use App\Http\Middleware\IsAdmin;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/health', fn () => response()->json([
+    'status' => 'ok',
+    'service' => config('app.name'),
+]));
+
 /*
 |--------------------------------------------------------------------------
 | Public routes
